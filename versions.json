@@ -4,6 +4,11 @@
             "version": "0.1beta",
             "releaseDate": "04.02.2025",
             "releaseNotes": "Первая бета-версия."
+        },
+        {
+            "version": "0.2beta",
+            "releaseDate": "04.02.2025",
+            "releaseNotes": "Добавлены пайтон скрипты и всякое другое"
         }
     ]
 }
