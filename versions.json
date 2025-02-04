@@ -1,0 +1,9 @@
+{
+    "versions": [
+        {
+            "version": "0.1beta",
+            "releaseDate": "2025-02-01",
+            "releaseNotes": "Первая бета-версия."
+        }
+    ]
+}
