@@ -1,3 +1,27 @@
+$global:LogsRoot = Join-Path $PSScriptRoot ""
+Add-Type -AssemblyName System.Windows.Forms
+function Write-Log {
+    param(
+        [string]$Message,
+        [string]$FunctionName
+    )
+    
+    try {
+        if (-not (Test-Path $global:LogsRoot)) {
+            New-Item -ItemType Directory -Path $global:LogsRoot -Force | Out-Null
+            Write-Log -Message "Создана директория для логов" -FunctionName "System"
+        }
+        $logFileName = "temp.log"
+        $logPath = Join-Path $global:LogsRoot $logFileName
+        
+        $logEntry = "[$FunctionName] $Message"
+        Add-Content -Path $logPath -Value $logEntry -Encoding UTF8
+        
+    } catch {
+        Write-Host "Ошибка записи в лог: $_" -ForegroundColor Red
+    }
+}
+
 # Проверка обновлений
 function Check-ForUpdates {
     $currentVersion = "0.2beta" 
@@ -16,10 +40,12 @@ function Check-ForUpdates {
         }
     } catch {
         Write-Host "Ошибка при проверке обновлений: $_" -ForegroundColor Red
+        Write-Log -Message "Ошибка при проверке обновлений $_" -FunctionName "CheckUpdates"
     }
 }
 
 # Логотип программы
+$currentVersion = "0.1beta" 
 Write-Host @"
 ████████╗██╗░░██╗███████╗  ░█████╗░░█████╗░██╗░░██╗███████╗
 ╚══██╔══╝██║░░██║██╔════╝  ██╔══██╗██╔══██╗██║░██╔╝██╔════╝
@@ -28,8 +54,10 @@ Write-Host @"
 ░░░██║░░░██║░░██║███████╗  ╚█████╔╝██║░░██║██║░╚██╗███████╗
 ░░░╚═╝░░░╚═╝░░╚═╝╚══════╝  ░╚════╝░╚═╝░░╚═╝╚═╝░░╚═╝╚══════╝
 "@ -ForegroundColor Red
+Write-Log -Message "=== ЗАПУСК ПРОГРАММЫ ===" -FunctionName "System"
+Write-Log -Message "Текущая версия: $currentVersion" -FunctionName "System"
 Write-Host ""
-Write-Host "Версия программы: 0.1beta"
+Write-Host "Версия программы: $currentVersion"
 Write-Host "Проверка обновлений..."
 Check-ForUpdates
 Write-Host "Запуск программы..."
@@ -43,10 +71,10 @@ function Show-Menu {
         Write-Host "╔══════════════════════════ ГЛАВНОЕ МЕНЮ ══════════════════════════╗" -ForegroundColor Magenta
         Write-Host "║                                                                 ║" -ForegroundColor Magenta
         Write-Host "║  1. Создать бэкап звуковых схем                                 ║" -ForegroundColor Green
-        Write-Host "║  2. Докс по секс айди                                           ║" -ForegroundColor Green
-        Write-Host "║  3. ДДОС СВОЕГО АЙПИ                                            ║" -ForegroundColor Green
-        Write-Host "║  4. Купить ведро дурову симулятор                               ║" -ForegroundColor Green
-        Write-Host "║  5. Купить ФПИ БАНКИ                                            ║" -ForegroundColor Green
+        Write-Host "║  2. Создать бэкап курсоров                                      ║" -ForegroundColor Green
+        Write-Host "║  3. Создать бэкап настроек проводника                           ║" -ForegroundColor Green
+        Write-Host "║  4. Скоро будет!                                                ║" -ForegroundColor DarkGray
+        Write-Host "║  5. Скоро будет!                                                ║" -ForegroundColor DarkGray
         Write-Host "║  6. Скоро будет!                                                ║" -ForegroundColor DarkGray
         Write-Host "║  7. Скоро будет!                                                ║" -ForegroundColor DarkGray
         Write-Host "║  8. Скоро будет!                                                ║" -ForegroundColor DarkGray
@@ -73,6 +101,15 @@ function Show-Menu {
         Write-Host "║                                                                 ║" -ForegroundColor Magenta
         Write-Host "╚═════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
     }
+    elseif ($menuType -eq "test") {
+        Write-Host "╔══════════════════════════ DEBUG МЕНЮ ═══════════════════════════╗" -ForegroundColor Magenta
+        Write-Host "║                                                                 ║" -ForegroundColor Magenta
+        Write-Host "║ 97. Debug dialog windows                                        ║" -ForegroundColor Green
+        Write-Host "║ 98. Test                                                        ║" -ForegroundColor DarkGray
+        Write-Host "║ 99. Exit (new version)                                          ║" -ForegroundColor Red
+        Write-Host "║                                                                 ║" -ForegroundColor Magenta
+        Write-Host "╚═════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+    }
 }
 
 function Show-Git {
@@ -82,77 +119,137 @@ function Show-Git {
     pause
 }
 
+function Backup-ExplorerSettings {
+    $registryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"
+    $fileName = Read-Host "Введите название файла (без расширения .reg)"
+    $backupDir = Join-Path $PSScriptRoot "backups\explorer"
+    
+    # Создаем папку для бэкапа
+    if (-not (Test-Path $backupDir)) { 
+        New-Item -Path $backupDir -ItemType Directory -Force | Out-Null 
+    }
+
+    # Исправлено: Добавлено полное имя файла для экспорта
+    $outputFile = Join-Path $backupDir "$fileName.reg"
+    
+    # Исправлено: Подавлен вывод успешного сообщения
+    reg export "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" $outputFile /y > $null
+
+    # Показываем текущие настройки
+    $settings = Get-ItemProperty -Path $registryPath
+    Write-Host "`nТекущие настройки проводника:" -ForegroundColor Cyan
+    Write-Host "──────────────────────────────"
+    Write-Host "Скрытые файлы:          " -NoNewline
+    Write-Host $(if ($settings.Hidden -eq 1) { "Показаны" } else { "Скрыты" }) -ForegroundColor $(if ($settings.Hidden -eq 1) { "Green" } else { "Red" })
+    
+    Write-Host "Расширения файлов:      " -NoNewline
+    Write-Host $(if ($settings.HideFileExt -eq 0) { "Показаны" } else { "Скрыты" }) -ForegroundColor $(if ($settings.HideFileExt -eq 0) { "Green" } else { "Red" })
+    
+    Write-Host "Системные файлы:        " -NoNewline
+    Write-Host $(if ($settings.ShowSuperHidden -eq 0) { "Скрыты" } else { "Показаны" }) -ForegroundColor $(if ($settings.ShowSuperHidden -eq 1) { "Green" } else { "Red" })
+    
+    Write-Host "`nБэкап настроек экспортирован: $outputFile" -ForegroundColor Green
+    Write-Host "Для восстановления просто запустите файл .reg" -ForegroundColor Yellow
+    Write-Log -Message "Бэкап успешно сохранен в директорию $outputFile" -FunctionName "Backup Explorer Settings"
+    pause
+}
+
 function Backup-SoundSchemes {
     $registryPath = "HKEY_CURRENT_USER\AppEvents\Schemes"
     $fileName = Read-Host "Введите название файла (без расширения .reg)"
-    $outputFile = Join-Path -Path $PSScriptRoot -ChildPath "$fileName.reg"
+    $backupDir = Join-Path -Path $PSScriptRoot -ChildPath "backups\personalization"
+    
+    # Создаем папку, если её нет
+    if (-not (Test-Path -Path $backupDir)) {
+        New-Item -Path $backupDir -ItemType Directory -Force | Out-Null
+        Write-Log -Message "Папка создана..." -FunctionName "Backup Sound Schemes"
+    }
+    
+    $outputFile = Join-Path -Path $backupDir -ChildPath "$fileName.reg"
     
     if (Test-Path "Registry::$registryPath") {
         regedit /e "$outputFile" "$registryPath"
         Write-Host ""
-        Write-Host "Бэкап успешно сохранен!" -ForegroundColor Green
+        Write-Host "Бэкап звуковых схем успешно сохранен!" -ForegroundColor Green
         Write-Host "Путь: $outputFile" -ForegroundColor Green
-        Write-Host "Помните: Бэкап вашей версии Windows нормально работает только на конкретной версии Windows" -ForegroundColor Green
+        Write-Host "Помните: Бэкап вашей версии Windows может не работать на других версиях" -ForegroundColor Green
         Write-Host ""
+        Write-Log -Message "Бэкап успешно сохранен в директорию $outputFile" -FunctionName "Backup Sound Schemes"
     } else {
-        Write-Host "`n╔══════════════════════════════════════════════════╗" -ForegroundColor Red
-        Write-Host "║ Ошибка: Раздел реестра не найден!                 ║" -ForegroundColor Red
-        Write-Host "╚══════════════════════════════════════════════════╝`n" -ForegroundColor Red
+        Write-Host "Ошибка реестра"
+        Write-Log -Message "Ошибка реестра, раздел реестра не найден!" -FunctionName "Backup Sound Schemes"
     }
     pause
 }
 
-function Run-TestScript {
-    $scriptPath = Join-Path -Path "$PSScriptRoot\XCoder" -ChildPath "Main.py"
+function Backup-Cursors {
+    $registryPath = "HKEY_CURRENT_USER\Control Panel\Cursors"
+    $fileName = Read-Host "Введите название файла (без расширения .reg)"
+    $backupDir = Join-Path -Path $PSScriptRoot -ChildPath "backups\personalization"
     
-    if (Test-Path $scriptPath) {
-        Write-Host "Запуск..." -ForegroundColor Green
-        Start-Process -FilePath "python" -ArgumentList $scriptPath -NoNewWindow -Wait
-        Write-Host "Программа завершенена!" -ForegroundColor Green
+    # Создаем папку, если её нет
+    if (-not (Test-Path -Path $backupDir)) {
+        New-Item -Path $backupDir -ItemType Directory -Force | Out-Null
+        Write-Log -Message "Папка создана..." -FunctionName "Backup Cursors"
+    }
+    
+    $outputFile = Join-Path -Path $backupDir -ChildPath "$fileName.reg"
+    
+    if (Test-Path "Registry::$registryPath") {
+        regedit /e "$outputFile" "$registryPath"
+        Write-Host ""
+        Write-Host "Бэкап курсоров успешно сохранен!" -ForegroundColor Green
+        Write-Host "Путь: $outputFile" -ForegroundColor Green
+        Write-Host "Помните: Бэкап вашей версии Windows может не работать на других версиях" -ForegroundColor Green
+        Write-Host ""
+        Write-Log -Message "Бэкап успешно сохранен в директорию $outputFile" -FunctionName "Backup Cursors"
     } else {
-        Write-Host "Ошибка: Файл test.py не найден!" -ForegroundColor Red
+        Write-Host "Ошибка реестра!" -ForegroundColor Red
+        Write-Log -Message "Ошибка реестра, раздел реестра не найден!" -FunctionName "Backup Cursors"
     }
     pause
 }
 
-function Run-DurovGame {
-    $scriptPath = Join-Path -Path "$PSScriptRoot\scripts" -ChildPath "durovvedrosimulator.py"
-    
-    if (Test-Path $scriptPath) {
-        Write-Host "Запуск..." -ForegroundColor Green
-        Start-Process -FilePath "python" -ArgumentList $scriptPath -NoNewWindow -Wait
-        Write-Host "Программа завершенена!" -ForegroundColor Green
-    } else {
-        Write-Host "Ошибка: Файл durovvedrosimulator.py не найден!" -ForegroundColor Red
+function Test-Function {
+    $message = "Тестовая функция, Выберите Да, Нет или Отмена"
+    $title = "Тест"
+
+    $result = [System.Windows.Forms.MessageBox]::Show($message, $title, [System.Windows.Forms.MessageBoxButtons]::YesNoCancel, [System.Windows.Forms.MessageBoxIcon]::Information)
+
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) {
+        Write-Host "Вы выбрали Да."
+    } elseif ($result -eq [System.Windows.Forms.DialogResult]::No) {
+        Write-Host "Вы выбрали Нет."
+    } elseif ($result -eq [System.Windows.Forms.DialogResult]::Cancel) {
+        Write-Host "Вы выбрали Отмена."
     }
+
     pause
 }
 
-function Run-DDosLocalHost {
-    $scriptPath = Join-Path -Path "$PSScriptRoot\scripts" -ChildPath "ddos.py"
-    
-    if (Test-Path $scriptPath) {
-        Write-Host "Запуск..." -ForegroundColor Green
-        Start-Process -FilePath "python" -ArgumentList $scriptPath -NoNewWindow -Wait
-        Write-Host "Программа завершенена!" -ForegroundColor Green
-    } else {
-        Write-Host "Ошибка: Файл ddos.py не найден!" -ForegroundColor Red
-    }
-    pause
-}
 
-function Run-CryptoBuy {
-    $scriptPath = Join-Path -Path "$PSScriptRoot\scripts" -ChildPath "fpi.py"
-    
-    if (Test-Path $scriptPath) {
-        Write-Host "Запуск..." -ForegroundColor Green
-        Start-Process -FilePath "python" -ArgumentList $scriptPath -NoNewWindow -Wait
-        Write-Host "Программа завершенена!" -ForegroundColor Green
-    } else {
-        Write-Host "Ошибка: Файл fpi.py не найден!" -ForegroundColor Red
+function Exit-Programm {
+    Write-Host "`nДо свидания!`n" -ForegroundColor Cyan;
+    Write-Log -Message "=== ЗАВЕРШЕНИЕ РАБОТЫ ===" -FunctionName "System"
+    exit
     }
-    pause
-}
+
+function Exit-New {
+    $message = "Вы точно хотите выйти?"
+    $title = "The Cake - Выход"
+
+    $result = [System.Windows.Forms.MessageBox]::Show($message, $title, [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Question)
+
+    if ($result -eq [System.Windows.Forms.DialogResult]::Yes) 
+    {
+    Write-Host "`nДо свидания!`n" -ForegroundColor Cyan;
+    Write-Log -Message "=== ЗАВЕРШЕНИЕ РАБОТЫ ===" -FunctionName "System"
+    exit
+    } 
+    elseif ($result -eq [System.Windows.Forms.DialogResult]::No) 
+    {
+    }
+    }
 
 $currentMenu = "main"
 
@@ -163,16 +260,17 @@ do {
         
         switch ($choice) {
             '1' { Backup-SoundSchemes }
-            '2' { Run-TestScript }
-            '3' { Run-DDosLocalHost }
-            '4' { Run-DurovGame }
-            '5' { Run-CryptoBuy }
-            '6' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '7' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '8' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
+            '2' { Backup-Cursors }
+            '3' { Backup-ExplorerSettings }
+            '4' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '5' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '6' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '7' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '8' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
             '9' { Show-Git }
             '10' { $currentMenu = "second" }
-            '11' { Write-Host "`nДо свидания!`n" -ForegroundColor Cyan; exit }
+            '11' { Exit-Programm }
+            '999' { $currentMenu = "test" }
             default { Write-Host "`nНекорректный выбор! Попробуйте снова.`n" -ForegroundColor Red; pause }
         }
     }
@@ -181,17 +279,28 @@ do {
         $choice = Read-Host "`nВыберите действие (12-22)"
         
         switch ($choice) {
-            '12' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '13' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '14' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '15' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '16' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '17' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '18' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '19' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '20' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '21' { Write-Host "`n$(Get-Date -Format '[HH:mm:ss]') Скоро будет...`n" -ForegroundColor Yellow; pause }
-            '22' { $currentMenu = "main" }
+            '12' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '13' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '14' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '15' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '16' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '17' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '18' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '19' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '20' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '21' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '22' { $currentMenu = "main" }  # Возврат в главное меню
+            default { Write-Host "`nНекорректный выбор! Попробуйте снова.`n" -ForegroundColor Red; pause }
+        }
+    }
+    elseif ($currentMenu -eq "test") {
+        Show-Menu -menuType "test" 
+        $choice = Read-Host "`nВыберите действие (97-99)"
+        
+        switch ($choice) {
+            '97' { Test-Function }
+            '98' { Write-Host "Скоро будет..." -ForegroundColor DarkGray; pause }
+            '99' { Exit-New }
             default { Write-Host "`nНекорректный выбор! Попробуйте снова.`n" -ForegroundColor Red; pause }
         }
     }
