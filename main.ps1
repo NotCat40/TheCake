@@ -24,7 +24,7 @@ function Write-Log {
 
 # Проверка обновлений
 function Check-ForUpdates {
-    $currentVersion = "0.2beta" 
+    $currentVersion = "0.3beta" 
     $updateUrl = "https://raw.githubusercontent.com/NotCat40/TheCake/main/versions.json"
 
     try {
@@ -45,7 +45,7 @@ function Check-ForUpdates {
 }
 
 # Логотип программы
-$currentVersion = "0.1beta" 
+$currentVersion = "0.3beta" 
 Write-Host @"
 ████████╗██╗░░██╗███████╗  ░█████╗░░█████╗░██╗░░██╗███████╗
 ╚══██╔══╝██║░░██║██╔════╝  ██╔══██╗██╔══██╗██║░██╔╝██╔════╝
